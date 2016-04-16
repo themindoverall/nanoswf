@@ -21,6 +21,33 @@ TODO
  - MovieClips
  - Sounds
  - Buttons (with callback)
+
+SWFPlayer does the following:
+- Loads the data
+- Keeps track of header info, characters, scenes, and frames
+- the tag parser calls a callback for each tag which SWFPlayer uses to setup the frame
+- on ShowFrame, clone the current frame and set it current
+- at this point we should have a fully ready to use version of the SWF in memory and the raw data freed
+- expose the capability to move through frames (play, stop, goto)
+- expose the frame as a data structure that is easily rendered in nanovg
+
+Usage:
+(in pseudo-C)
+
+FILE *f = fopen("test.swf", "rb");
+void *data = freadall(f);
+SWFData *swfData = NSWF_SWFDataInit(data, data.length, callback);
+
+void callback(SWFData *data, SWFTagCode code, void *tagptr)
+{
+	// handle the tag
+	switch (code) {
+		case TagCode_DefineShape4:
+			TagDefineShape4 *tag = (TagDefineShape4 *)tagptr;
+			break;
+	}
+}
+
 */
 
 #include <stdio.h>
@@ -31,6 +58,8 @@ TODO
 #define NSWF_FLOAT16_EXPONENT_BASE 15
 #define MIN_VALUE(a, b) ((a < b) ? (a) : (b))
 #define MAX_VALUE(a, b) ((a > b) ? (a) : (b))
+
+#pragma region Types
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -56,161 +85,6 @@ typedef struct {
 	u32			ByteIndex;
 	u32			BitsPending;
 } NSWF_swfdata;
-
-typedef struct {
-	s32		XMin;
-	s32		XMax;
-	s32		YMin;
-	s32		YMax;
-} NSWF_rect;
-
-typedef struct {
-	r32		ScaleX;
-	r32		ScaleY;
-	r32		RotateSkew0;
-	r32		RotateSkew1;
-	s32		TranslateX;
-	s32		TranslateY;
-} NSWF_matrix;
-
-typedef struct {
-	s32		RedMultTerm;
-	s32		GreenMultTerm;
-	s32		BlueMultTerm;
-	s32		AlphaMultTerm;
-	s32		RedAddTerm;
-	s32		GreenAddTerm;
-	s32		BlueAddTerm;
-	s32		AlphaAddTerm;
-} NSWF_cxform;
-
-typedef struct {
-	u8								Ratio;
-	u32								Color;
-} NSWF_gradientrecord;
-
-typedef struct {
-	u8								SpreadMode;
-	u8								InterpolationMode;
-	NSWF_gradientrecord	*			GradientRecords;
-	u16								GradientRecordsCount;
-	r32								FocalPoint;
-} NSWF_gradient;
-
-typedef enum {
-	NSWF_FillStyleType_SolidFill = 0x00,
-	NSWF_FillStyleType_LinearGradient = 0x10,
-	NSWF_FillStyleType_RadialGradient = 0x12,
-	NSWF_FillStyleType_FocalRadialGradient = 0x13,
-	NSWF_FillStyleType_RepeatingBitmap = 0x40,
-	NSWF_FillStyleType_ClippedBitmap = 0x41,
-	NSWF_FillStyleType_NonSmoothedRepeating = 0x42,
-	NSWF_FillStyleType_NonSmoothedClipped = 0x43
-} NSWF_fillstyletype;
-
-typedef struct {
-	NSWF_fillstyletype				Type;
-	union {
-		u32							Color;
-		struct {
-			NSWF_gradient			Gradient;
-			NSWF_gradient			GradentMatrix;
-		};
-		struct {
-			u32						BitmapId;
-			NSWF_matrix				BitmapMatrix;
-		};
-	};
-} NSWF_fillstyle;
-
-typedef enum {
-	NSWF_LineStyleFlags_HasFillFlag = 0x1,
-	NSWF_LineStyleFlags_NoHScaleFlag = 0x2,
-	NSWF_LineStyleFlags_NoVScaleFlag = 0x4,
-	NSWF_LineStyleFlags_PixelHintingFlag = 0x8,
-	NSWF_LineStyleFlags_NoCloseFlag = 0x10
-} NSWF_linestyleflags;
-
-typedef struct {
-	u16								Width;
-	u8								StartCapStyle;
-	u8								EndCapStyle;
-	u8								JoinStyle;
-	u8								Flags;
-	u16								MiterLimitFactor;
-	union {
-		u32							Color;
-		NSWF_fillstyle				FillStyle;
-	};
-} NSWF_linestyle;
-
-typedef struct {
-	NSWF_fillstyle *				FillStyles;
-	u32								FillStylesCount;
-} NSWF_fillstylearray;
-
-typedef struct {
-	NSWF_linestyle *				LineStyles;
-	u32								LineStylesCount;
-} NSWF_linestylearray;
-
-typedef enum {
-	NSWF_ShapeRecord_StraightEdge,
-	NSWF_ShapeRecord_CurvedEdge,
-	NSWF_ShapeRecord_StyleChange
-} NSWF_shaperecordtype;
-
-typedef struct {
-	s32								DeltaX;
-	s32								DeltaY;
-} NSWF_straightedgerecord;
-
-typedef struct {
-	s32								ControlDeltaX;
-	s32								ControlDeltaY;
-	s32								AnchorDeltaX;
-	s32								AnchorDeltaY;
-} NSWF_curvededgerecord;
-
-typedef struct {
-	u32								Flags;
-	s32								MoveDeltaX;
-	s32								MoveDeltaY;
-	u32								FillStyle0;
-	u32								FillStyle1;
-	NSWF_fillstylearray				FillStyles;
-	NSWF_linestylearray				LineStyles;
-} NSWF_stylechangerecord;
-
-typedef struct {
-	NSWF_shaperecordtype			Type;
-	union {
-		NSWF_straightedgerecord		StraightEdge;
-		NSWF_curvededgerecord		CurvedEdge;
-		NSWF_stylechangerecord		StyleChange;
-	};
-} NSWF_shaperecord;
-
-typedef struct {
-	NSWF_shaperecord *				ShapeRecords;
-	u32								ShapeRecordsLength;
-} NSWF_shape;
-
-//typedef struct {
-//
-//} NSWF_buttonrecord;
-
-//typedef struct {
-//
-//} NSWF_symbol;
-
-//typedef struct {
-//
-//} NSWF_soundinfo;
-//
-//typedef struct {
-//
-//} NSWF_soundenvelope;
 
 typedef struct {
 	u8				Signature[3];
@@ -363,6 +237,172 @@ void init_tag_names(void) {
 	tag_names[91] = "DefineFont4";
 	tag_names[93] = "EnableTelemetry";
 };
+typedef struct {
+	s32		XMin;
+	s32		XMax;
+	s32		YMin;
+	s32		YMax;
+} NSWF_rect;
+
+typedef struct {
+	r32		ScaleX;
+	r32		ScaleY;
+	r32		RotateSkew0;
+	r32		RotateSkew1;
+	s32		TranslateX;
+	s32		TranslateY;
+} NSWF_matrix;
+
+typedef struct {
+	s32		RedMultTerm;
+	s32		GreenMultTerm;
+	s32		BlueMultTerm;
+	s32		AlphaMultTerm;
+	s32		RedAddTerm;
+	s32		GreenAddTerm;
+	s32		BlueAddTerm;
+	s32		AlphaAddTerm;
+} NSWF_cxform;
+
+typedef struct {
+	u8								Ratio;
+	u32								Color;
+} NSWF_gradientrecord;
+
+typedef struct {
+	u8								SpreadMode;
+	u8								InterpolationMode;
+	NSWF_gradientrecord	*			GradientRecords;
+	u16								GradientRecordsCount;
+	r32								FocalPoint;
+} NSWF_gradient;
+
+typedef enum {
+	NSWF_FillStyleType_SolidFill = 0x00,
+	NSWF_FillStyleType_LinearGradient = 0x10,
+	NSWF_FillStyleType_RadialGradient = 0x12,
+	NSWF_FillStyleType_FocalRadialGradient = 0x13,
+	NSWF_FillStyleType_RepeatingBitmap = 0x40,
+	NSWF_FillStyleType_ClippedBitmap = 0x41,
+	NSWF_FillStyleType_NonSmoothedRepeating = 0x42,
+	NSWF_FillStyleType_NonSmoothedClipped = 0x43
+} NSWF_fillstyletype;
+
+typedef struct {
+	NSWF_fillstyletype				Type;
+	union {
+		u32							Color;
+		struct {
+			NSWF_gradient			Gradient;
+			NSWF_gradient			GradentMatrix;
+		};
+		struct {
+			u32						BitmapId;
+			NSWF_matrix				BitmapMatrix;
+		};
+	};
+} NSWF_fillstyle;
+
+typedef enum {
+	NSWF_LineStyleFlags_HasFillFlag = 0x1,
+	NSWF_LineStyleFlags_NoHScaleFlag = 0x2,
+	NSWF_LineStyleFlags_NoVScaleFlag = 0x4,
+	NSWF_LineStyleFlags_PixelHintingFlag = 0x8,
+	NSWF_LineStyleFlags_NoCloseFlag = 0x10
+} NSWF_linestyleflags;
+
+typedef struct {
+	u16								Width;
+	u8								StartCapStyle;
+	u8								EndCapStyle;
+	u8								JoinStyle;
+	u8								Flags;
+	u16								MiterLimitFactor;
+	union {
+		u32							Color;
+		NSWF_fillstyle				FillStyle;
+	};
+} NSWF_linestyle;
+
+typedef struct {
+	NSWF_fillstyle *				FillStyles;
+	u32								FillStylesCount;
+} NSWF_fillstylearray;
+
+typedef struct {
+	NSWF_linestyle *				LineStyles;
+	u32								LineStylesCount;
+} NSWF_linestylearray;
+
+typedef enum {
+	NSWF_ShapeRecord_StraightEdge,
+	NSWF_ShapeRecord_CurvedEdge,
+	NSWF_ShapeRecord_StyleChange
+} NSWF_shaperecordtype;
+
+typedef struct {
+	s32								DeltaX;
+	s32								DeltaY;
+} NSWF_straightedgerecord;
+
+typedef struct {
+	s32								ControlDeltaX;
+	s32								ControlDeltaY;
+	s32								AnchorDeltaX;
+	s32								AnchorDeltaY;
+} NSWF_curvededgerecord;
+
+typedef struct {
+	u32								Flags;
+	s32								MoveDeltaX;
+	s32								MoveDeltaY;
+	u32								FillStyle0;
+	u32								FillStyle1;
+	NSWF_fillstylearray				FillStyles;
+	NSWF_linestylearray				LineStyles;
+} NSWF_stylechangerecord;
+
+typedef struct {
+	NSWF_shaperecordtype			Type;
+	union {
+		NSWF_straightedgerecord		StraightEdge;
+		NSWF_curvededgerecord		CurvedEdge;
+		NSWF_stylechangerecord		StyleChange;
+	};
+} NSWF_shaperecord;
+
+typedef struct {
+	NSWF_fillstylearray				FillStyles;
+	NSWF_linestylearray				LineStyles;
+	NSWF_shaperecord *				ShapeRecords;
+	u32								ShapeRecordsCount;
+} NSWF_shape;
+
+//typedef struct {
+//
+//} NSWF_buttonrecord;
+
+//typedef struct {
+//
+//} NSWF_symbol;
+
+//typedef struct {
+//
+//} NSWF_soundinfo;
+//
+//typedef struct {
+//
+//} NSWF_soundenvelope;
+
+#pragma endregion Types
+
+#pragma region Tags
+
+typedef struct {
+
+} NSWF_tag_defineshape4;
+
+#pragma endregion Tags
 
 NSWF_swfdata *NSWF_SWFDataInit(void *Data, u32 Length) {
 	NSWF_swfdata *Result = (NSWF_swfdata *)malloc(sizeof(NSWF_swfdata));
@@ -715,32 +755,6 @@ NSWF_cxform NSWF_SWFDataReadCXFORM(NSWF_swfdata *SWFData, u32 WithAlpha) {
 	return(Result);
 }
 
-
-
-//u32 NSWF_ReadSB(u8 *ByteBuffer, u32 BitOffset, u8 Nbits, s32 *Result) {
-//	u32 Bits;
-//	u32 val = NSWF_ReadUB(ByteBuffer, BitOffset, Nbits, &Bits);
-//	*Result = Bits & ((1 << Nbits) - 1);
-//	*Result *= (Bits & 1 << Nbits) ? -1 : 1;
-//	return val;
-//}
-//
-//void NSWF_ReadRect(FILE *File, NSWF_rect *Rect) {
-//	u8 Nbits;
-//	u8 ByteBuffer[12];
-//	size_t size = sizeof(u8);
-//	fread_s(&ByteBuffer, sizeof(u8), sizeof(u8), 1, File);
-//	Nbits = ByteBuffer[0] >> 3;
-//	u32 BytesNeeded = (((Nbits * 4) + 12) & ~7) / 8 - 1;
-//	fread_s(&ByteBuffer[1], 11, sizeof(u8), BytesNeeded, File);
-//
-//	u32 BitOffset = 5;
-//	BitOffset += NSWF_ReadSB(ByteBuffer, BitOffset, Nbits, &Rect->XMin);
-//	BitOffset += NSWF_ReadSB(ByteBuffer, BitOffset, Nbits, &Rect->XMax);
-//	BitOffset += NSWF_ReadSB(ByteBuffer, BitOffset, Nbits, &Rect->YMin);
-//	BitOffset += NSWF_ReadSB(ByteBuffer, BitOffset, Nbits, &Rect->YMax);
-//}
-
 NSWF_tag_header NSWF_SWFDataReadTagHeader(NSWF_swfdata *SWFData) {
 	NSWF_tag_header Result;
 	u16 TagCodeAndLength = NSWF_SWFDataReadU16(SWFData);
@@ -749,6 +763,11 @@ NSWF_tag_header NSWF_SWFDataReadTagHeader(NSWF_swfdata *SWFData) {
 	if (Result.Length == 0x3F) {
 		Result.Length = NSWF_SWFDataReadU32(SWFData);
 	}
+	return(Result);
+}
+
+NSWF_shape *NSWF_SWFDataReadTagDEFINESHAPE4(NSWF_swfdata *SWFData) {
+	NSWF_shape *Result = malloc(sizeof(NSWF_shape));
 	return(Result);
 }
 
@@ -799,7 +818,7 @@ int main(s32 argc, char *argv[]) {
 		printf_s("Tag: %s Size: %X\n", tag_names[TagHeader.TagCode], TagHeader.Length);
 		switch (TagHeader.TagCode) {
 			case TagCode_DefineShape2: {
-				//NSWF_shape *shape = NSWF_SWFDataReadShape(SWF);
+				NSWF_shape *shape = NSWF_SWFDataReadTagDEFINESHAPE4(SWFData);
 			} break;
 			default: {
 				NSWF_SWFDataSkip(SWFData, TagHeader.Length);
