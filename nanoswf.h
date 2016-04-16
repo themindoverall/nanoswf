@@ -50,6 +50,9 @@ void callback(SWFData *data, SWFTagCode code, void *tagptr)
 
 */
 
+#ifndef NANOSWF_H
+#define NANOSWF_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -79,21 +82,50 @@ typedef union {
 } NSWF_number;
 
 typedef struct {
-	void *		Data;
-	u8 *		Head;
-	u32			Length;
-	u32			ByteIndex;
-	u32			BitsPending;
-} NSWF_swfdata;
+    s32		XMin;
+    s32		XMax;
+    s32		YMin;
+    s32		YMax;
+} NSWF_rect;
 
 typedef struct {
-	u8				Signature[3];
-	u8				Version;
-	u32				FileLength;
-	NSWF_rect		FrameSize;
-	r32				FrameRate;
-	u16				FrameCount;
-} NSWF_header;
+    r32		ScaleX;
+    r32		ScaleY;
+    r32		RotateSkew0;
+    r32		RotateSkew1;
+    s32		TranslateX;
+    s32		TranslateY;
+} NSWF_matrix;
+
+typedef struct {
+    s32		RedMultTerm;
+    s32		GreenMultTerm;
+    s32		BlueMultTerm;
+    s32		AlphaMultTerm;
+    s32		RedAddTerm;
+    s32		GreenAddTerm;
+    s32		BlueAddTerm;
+    s32		AlphaAddTerm;
+} NSWF_cxform;
+
+typedef struct {
+    u8				Signature[3];
+    u8				Version;
+    u32				FileLength;
+    NSWF_rect		FrameSize;
+    r32				FrameRate;
+    u16				FrameCount;
+} NSWF_swfheader;
+
+typedef struct {
+    NSWF_swfheader  Header;
+    u32             OwnsData;
+	void *		    Data;
+	u8 *		    Head;
+	u32			    Length;
+	u32			    ByteIndex;
+	u32			    BitsPending;
+} NSWF_swfdata;
 
 typedef struct {
 	u16				TagCode;
@@ -167,102 +199,6 @@ typedef enum {
 	TagCode_DefineFont4 = 91,
 	TagCode_EnableTelemetry = 93
 } NSWF_tag_type;
-
-char *tag_names[100];
-
-void init_tag_names(void) {
-	tag_names[0] = "End";
-	tag_names[1] = "ShowFrame";
-	tag_names[2] = "DefineShape";
-	tag_names[4] = "PlaceObject";
-	tag_names[5] = "RemoveObject";
-	tag_names[6] = "DefineBits";
-	tag_names[7] = "DefineButton";
-	tag_names[8] = "JPEGTables";
-	tag_names[9] = "SetBackgroundColor";
-	tag_names[10] = "DefineFont";
-	tag_names[11] = "DefineText";
-	tag_names[12] = "DoAction";
-	tag_names[13] = "DefineFontInfo";
-	tag_names[14] = "DefineSound";
-	tag_names[15] = "StartSound";
-	tag_names[17] = "DefineButtonSound";
-	tag_names[18] = "SoundStreamHead";
-	tag_names[19] = "SoundStreamBlock";
-	tag_names[20] = "DefineBitsLossless";
-	tag_names[21] = "DefineBitsJPEG2";
-	tag_names[22] = "DefineShape2";
-	tag_names[23] = "DefineButtonCxform";
-	tag_names[24] = "Protect";
-	tag_names[26] = "PlaceObject2";
-	tag_names[28] = "RemoveObject2";
-	tag_names[32] = "DefineShape3";
-	tag_names[33] = "DefineText2";
-	tag_names[34] = "DefineButton2";
-	tag_names[35] = "DefineBitsJPEG3";
-	tag_names[36] = "DefineBitsLossless2";
-	tag_names[37] = "DefineEditText";
-	tag_names[39] = "DefineSprite";
-	tag_names[43] = "FrameLabel";
-	tag_names[45] = "SoundStreamHead2";
-	tag_names[46] = "DefineMorphShape";
-	tag_names[48] = "DefineFont2";
-	tag_names[56] = "ExportAssets";
-	tag_names[57] = "ImportAssets";
-	tag_names[58] = "EnableDebugger";
-	tag_names[59] = "DoInitAction";
-	tag_names[60] = "DefineVideoStream";
-	tag_names[61] = "VideoFrame";
-	tag_names[62] = "DefineFontInfo2";
-	tag_names[64] = "EnableDebugger2";
-	tag_names[65] = "ScriptLimits";
-	tag_names[66] = "SetTabIndex";
-	tag_names[69] = "FileAttributes";
-	tag_names[70] = "PlaceObject3";
-	tag_names[71] = "ImportAssets2";
-	tag_names[73] = "DefineFontAlignZones";
-	tag_names[74] = "CSMTextSettings";
-	tag_names[75] = "DefineFont3";
-	tag_names[76] = "SymbolClass";
-	tag_names[77] = "Metadata";
-	tag_names[78] = "DefineScalingGrid";
-	tag_names[82] = "DoABC";
-	tag_names[83] = "DefineShape4";
-	tag_names[84] = "DefineMorphShape2";
-	tag_names[86] = "DefineSceneAndFrameLabelData";
-	tag_names[87] = "DefineBinaryData";
-	tag_names[88] = "DefineFontName";
-	tag_names[89] = "StartSound2";
-	tag_names[90] = "DefineBitsJPEG4";
-	tag_names[91] = "DefineFont4";
-	tag_names[93] = "EnableTelemetry";
-};
-typedef struct {
-	s32		XMin;
-	s32		XMax;
-	s32		YMin;
-	s32		YMax;
-} NSWF_rect;
-
-typedef struct {
-	r32		ScaleX;
-	r32		ScaleY;
-	r32		RotateSkew0;
-	r32		RotateSkew1;
-	s32		TranslateX;
-	s32		TranslateY;
-} NSWF_matrix;
-
-typedef struct {
-	s32		RedMultTerm;
-	s32		GreenMultTerm;
-	s32		BlueMultTerm;
-	s32		AlphaMultTerm;
-	s32		RedAddTerm;
-	s32		GreenAddTerm;
-	s32		BlueAddTerm;
-	s32		AlphaAddTerm;
-} NSWF_cxform;
 
 typedef struct {
 	u8								Ratio;
@@ -404,19 +340,20 @@ typedef struct {
 
 #pragma endregion Tags
 
-NSWF_swfdata *NSWF_SWFDataInit(void *Data, u32 Length) {
-	NSWF_swfdata *Result = (NSWF_swfdata *)malloc(sizeof(NSWF_swfdata));
-	Result->Data = Data;
-	Result->Head = Data;
-	Result->Length = Length;
-	Result->ByteIndex = 0;
-	Result->BitsPending = 0;
-	return(Result);
-}
+#endif
 
-void NSWF_SWFDataFree(NSWF_swfdata *SWFData) {
-	free(SWFData);
-}
+typedef void (*NSWF_tagcallback)(u32, void *);
+
+NSWF_swfdata *NSWF_SWFDataInit(void *Data, u32 Length);
+NSWF_swfdata *NSWF_SWFDataInitFromFile(const char *Filename);
+void NSWF_SWFDataFree(NSWF_swfdata *SWFData);
+
+void NSWF_SWFDataReadTags(NSWF_swfdata *SWFData, NSWF_tagcallback TagCallback);
+
+//NSWF_swfplayer *NSWF_SWFPlayerInit(const char *Filename);
+//NSWF_swfplayer *NSWF_SWFPlayerFree(NSWF_swfplayer *SWFPlayer);
+
+#ifdef NANOSWF_IMPLEMENTATION
 
 void NSWF_SWFDataSkip(NSWF_swfdata *SWFData, u32 bytes) {
 	SWFData->Head += bytes;
@@ -771,67 +708,81 @@ NSWF_shape *NSWF_SWFDataReadTagDEFINESHAPE4(NSWF_swfdata *SWFData) {
 	return(Result);
 }
 
-int main(s32 argc, char *argv[]) {
-//	u32 u = 65529U;
-//	s16 s = (s16)u;
-//	printf("u: %d s: %d\n", u, s);
-//	getchar();
-//}
-//
-//int crap() {
-	FILE *File;
+NSWF_swfdata *NSWF_SWFDataInit(void *Data, u32 Length) {
+    NSWF_swfdata *Result = (NSWF_swfdata *)malloc(sizeof(NSWF_swfdata));
+    Result->OwnsData = 0;
+    Result->Data = Data;
+    Result->Head = Data;
+    Result->Length = Length;
+    Result->ByteIndex = 0;
+    Result->BitsPending = 0;
 
-	fopen_s(&File, "Assets\\test2.swf", "rb");
+    // Read header
+    NSWF_swfheader Header = { 0 };
+    Header.Signature[0] = NSWF_SWFDataReadU8(Result);
+    Header.Signature[1] = NSWF_SWFDataReadU8(Result);
+    Header.Signature[2] = NSWF_SWFDataReadU8(Result);
+    Header.Version = NSWF_SWFDataReadU8(Result);
+    Header.FileLength = NSWF_SWFDataReadU32(Result);
+    Header.FrameSize = NSWF_SWFDataReadRECT(Result);
+    Header.FrameRate = NSWF_SWFDataReadFIXED8(Result);
+    Header.FrameCount = NSWF_SWFDataReadU16(Result);
 
-	if (!File) {
-		printf("File not found.\n");
-		getchar();
-		return 1;
-	}
+    Result->Header = Header;
 
-	init_tag_names();
-
-	fseek(File, 0, SEEK_END);
-	long Length = ftell(File);
-	fseek(File, 0, SEEK_SET);  //same as rewind(f);
-
-	void *Data = malloc(Length);
-	fread(Data, Length, 1, File);
-	fclose(File);
-
-	NSWF_swfdata *SWFData = NSWF_SWFDataInit(Data, Length);
-
-	// Read header
-	NSWF_header Header = { 0 };
-	Header.Signature[0] = NSWF_SWFDataReadU8(SWFData);
-	Header.Signature[1] = NSWF_SWFDataReadU8(SWFData);
-	Header.Signature[2] = NSWF_SWFDataReadU8(SWFData);
-	Header.Version = NSWF_SWFDataReadU8(SWFData);
-	Header.FileLength = NSWF_SWFDataReadU32(SWFData);
-	Header.FrameSize = NSWF_SWFDataReadRECT(SWFData);
-	Header.FrameRate = NSWF_SWFDataReadFIXED8(SWFData);
-	Header.FrameCount = NSWF_SWFDataReadU16(SWFData);
-
-	// Read tags
-	while (1) {
-		NSWF_tag_header TagHeader = NSWF_SWFDataReadTagHeader(SWFData);
-		printf_s("Tag: %s Size: %X\n", tag_names[TagHeader.TagCode], TagHeader.Length);
-		switch (TagHeader.TagCode) {
-			case TagCode_DefineShape2: {
-				NSWF_shape *shape = NSWF_SWFDataReadTagDEFINESHAPE4(SWFData);
-			} break;
-			default: {
-				NSWF_SWFDataSkip(SWFData, TagHeader.Length);
-			} break;
-		}
-		if (!TagHeader.TagCode) {
-			break;
-		}
-	}
-
-	NSWF_SWFDataFree(SWFData);
-	free(Data);
-
-	getchar();
-	return 0;
+    return(Result);
 }
+
+NSWF_swfdata *NSWF_SWFDataInitFromFile(const char *Filename) {
+    FILE *File;
+
+    File = fopen(Filename, "rb");
+
+    if (!File) {
+        printf("File not found.\n");
+        getchar();
+        return(NULL);
+    }
+
+    fseek(File, 0, SEEK_END);
+    long Length = ftell(File);
+    fseek(File, 0, SEEK_SET);  //same as rewind(f);
+
+    void *Data = malloc(Length);
+    fread(Data, Length, 1, File);
+    fclose(File);
+
+    NSWF_swfdata *Result = NSWF_SWFDataInit(Data, Length);
+    Result->OwnsData = 1;
+    return(Result);
+}
+
+void NSWF_SWFDataReadTags(NSWF_swfdata *SWFData, NSWF_tagcallback TagCallback) {
+    // Read tags
+    while (1) {
+        NSWF_tag_header TagHeader = NSWF_SWFDataReadTagHeader(SWFData);
+        void *Tag;
+
+        switch (TagHeader.TagCode) {
+            case TagCode_DefineShape4: {
+//                NSWF_shape *shape = NSWF_SWFDataReadTagDEFINESHAPE4(SWFData);
+            }
+            default: {
+                NSWF_SWFDataSkip(SWFData, TagHeader.Length);
+            } break;
+        }
+
+        TagCallback(TagHeader.TagCode, Tag);
+
+        if (!TagHeader.TagCode) {
+            break;
+        }
+    }
+}
+
+void NSWF_SWFDataFree(NSWF_swfdata *SWFData) {
+    free(SWFData->Data);
+    free(SWFData);
+}
+
+#endif
