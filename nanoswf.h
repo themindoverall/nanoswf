@@ -334,9 +334,19 @@ typedef struct {
 
 #pragma region Tags
 
-typedef struct {
+typedef enum {
+	NSWF_DefineShapeFlags_UseFillWindingRule = 0x04,
+	NSWF_DefineShapeFlags_UsesNonScalingStrokes = 0x02,
+	NSWF_DefineShapeFlags_UsesScalingStrokes = 0x01
+} NSWF_defineshapeflags;
 
-} NSWF_tag_defineshape4;
+typedef struct {
+	u16				CharacterID;
+	NSWF_rect		ShapeBounds;
+	NSWF_rect		EdgeBounds;
+	u8				Flags;
+	NSWF_shape		Shapes;
+} NSWF_tag_defineshape;
 
 #pragma endregion Tags
 
@@ -692,6 +702,19 @@ NSWF_cxform NSWF_SWFDataReadCXFORM(NSWF_swfdata *SWFData, u32 WithAlpha) {
 	return(Result);
 }
 
+//////////////////////////////
+//        SHAPES
+//////////////////////////////
+
+NSWF_shape NSWF_SWFDataReadSHAPE(NSWF_swfdata *SWFData, u32 WithStyles) {
+
+}
+
+
+//////////////////////////////
+//          TAGS
+//////////////////////////////
+
 NSWF_tag_header NSWF_SWFDataReadTagHeader(NSWF_swfdata *SWFData) {
 	NSWF_tag_header Result;
 	u16 TagCodeAndLength = NSWF_SWFDataReadU16(SWFData);
@@ -703,8 +726,13 @@ NSWF_tag_header NSWF_SWFDataReadTagHeader(NSWF_swfdata *SWFData) {
 	return(Result);
 }
 
-NSWF_shape *NSWF_SWFDataReadTagDEFINESHAPE4(NSWF_swfdata *SWFData) {
-	NSWF_shape *Result = malloc(sizeof(NSWF_shape));
+NSWF_tag_defineshape *NSWF_SWFDataReadTagDEFINESHAPE4(NSWF_swfdata *SWFData) {
+	NSWF_tag_defineshape *Result = malloc(sizeof(NSWF_tag_defineshape));
+	Result->CharacterID = NSWF_SWFDataReadU16(SWFData);
+	Result->ShapeBounds = NSWF_SWFDataReadRECT(SWFData);
+	Result->EdgeBounds = NSWF_SWFDataReadRECT(SWFData);
+	Result->Flags = NSWF_SWFDataReadU8(SWFData);
+	Result->Shapes = NSWF_DataReadSHAPE(SWFData, 1);
 	return(Result);
 }
 
@@ -733,10 +761,16 @@ NSWF_swfdata *NSWF_SWFDataInit(void *Data, u32 Length) {
     return(Result);
 }
 
+#ifdef _MSC_VER
+#define FOPEN(file, filename, mode) fopen_s(&file, filename, mode)
+#else
+#define FOPEN(file, filename, mode) file = fopen(filename, mode)
+#endif
+
 NSWF_swfdata *NSWF_SWFDataInitFromFile(const char *Filename) {
     FILE *File;
 
-    File = fopen(Filename, "rb");
+	FOPEN(File, Filename, "rb");
 
     if (!File) {
         printf("File not found.\n");
@@ -761,7 +795,7 @@ void NSWF_SWFDataReadTags(NSWF_swfdata *SWFData, NSWF_tagcallback TagCallback) {
     // Read tags
     while (1) {
         NSWF_tag_header TagHeader = NSWF_SWFDataReadTagHeader(SWFData);
-        void *Tag;
+		void *Tag = NULL;
 
         switch (TagHeader.TagCode) {
             case TagCode_DefineShape4: {
