@@ -95,7 +95,7 @@ int main(s32 argc, char *argv[]) {
 //int crap() {
     NSWF_TagNamesInit();
 
-    NSWF_swfdata *SWFData = NSWF_SWFDataInitFromFile("Assets/test2.swf");
+    NSWF_swfdata *SWFData = NSWF_SWFDataInitFromFile("Assets/test2.swf", 1 * 1024 * 1024);
 
     NSWF_SWFDataReadTags(SWFData, TagCallback);
 

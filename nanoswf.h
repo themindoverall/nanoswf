@@ -35,10 +35,10 @@ Usage:
 (in pseudo-C)
 
 FILE *f = fopen("test.swf", "rb");
-void *data = freadall(f);
+void* data = freadall(f);
 SWFData *swfData = NSWF_SWFDataInit(data, data.length, callback);
 
-void callback(SWFData *data, SWFTagCode code, void *tagptr)
+void callback(SWFData *data, SWFTagCode code, void* tagptr)
 {
 	// handle the tag
 	switch (code) {
@@ -120,11 +120,14 @@ typedef struct {
 typedef struct {
     NSWF_swfheader  Header;
     u32             OwnsData;
-	void *		    Data;
+	void * 		    Data;
 	u8 *		    Head;
 	u32			    Length;
 	u32			    ByteIndex;
 	u32			    BitsPending;
+	void * 			TagMemory;
+	u32				TagMemoryUsed;
+    u32             TagMemoryTotal;
 } NSWF_swfdata;
 
 typedef struct {
@@ -230,7 +233,7 @@ typedef struct {
 		u32							Color;
 		struct {
 			NSWF_gradient			Gradient;
-			NSWF_gradient			GradentMatrix;
+			NSWF_matrix 			GradientMatrix;
 		};
 		struct {
 			u32						BitmapId;
@@ -261,12 +264,12 @@ typedef struct {
 } NSWF_linestyle;
 
 typedef struct {
-	NSWF_fillstyle *				FillStyles;
+	NSWF_fillstyle *				FillStyles[];
 	u32								FillStylesCount;
 } NSWF_fillstylearray;
 
 typedef struct {
-	NSWF_linestyle *				LineStyles;
+	NSWF_linestyle *				LineStyles[];
 	u32								LineStylesCount;
 } NSWF_linestylearray;
 
@@ -345,44 +348,44 @@ typedef struct {
 	NSWF_rect		ShapeBounds;
 	NSWF_rect		EdgeBounds;
 	u8				Flags;
-	NSWF_shape		Shapes;
+	NSWF_shape *	Shapes;
 } NSWF_tag_defineshape;
 
 #pragma endregion Tags
 
 #endif
 
-typedef void (*NSWF_tagcallback)(u32, void *);
+typedef void (*NSWF_tagcallback)(u32, void* );
 
-NSWF_swfdata *NSWF_SWFDataInit(void *Data, u32 Length);
-NSWF_swfdata *NSWF_SWFDataInitFromFile(const char *Filename);
-void NSWF_SWFDataFree(NSWF_swfdata *SWFData);
+NSWF_swfdata* NSWF_SWFDataInit(void* Data, u32 Length);
+NSWF_swfdata* NSWF_SWFDataInitFromFile(const char* Filename);
+void NSWF_SWFDataFree(NSWF_swfdata* SWFData);
 
-void NSWF_SWFDataReadTags(NSWF_swfdata *SWFData, NSWF_tagcallback TagCallback);
+void NSWF_SWFDataReadTags(NSWF_swfdata* SWFData, NSWF_tagcallback TagCallback);
 
-//NSWF_swfplayer *NSWF_SWFPlayerInit(const char *Filename);
+//NSWF_swfplayer *NSWF_SWFPlayerInit(const char* Filename);
 //NSWF_swfplayer *NSWF_SWFPlayerFree(NSWF_swfplayer *SWFPlayer);
 
 #ifdef NANOSWF_IMPLEMENTATION
 
-void NSWF_SWFDataSkip(NSWF_swfdata *SWFData, u32 bytes) {
+void NSWF_SWFDataSkip(NSWF_swfdata* SWFData, u32 bytes) {
 	SWFData->Head += bytes;
 	SWFData->ByteIndex += bytes;
 	SWFData->BitsPending = 0;
 }
 
-u8 NSWF_SWFDataAdvance(NSWF_swfdata *SWFData) {
+u8 NSWF_SWFDataAdvance(NSWF_swfdata* SWFData) {
 	u8 Result = *SWFData->Head;
 	++SWFData->Head;
 	++SWFData->ByteIndex;
 	return(Result);
 }
 
-void NSWF_SWFDataResetBitsPending(NSWF_swfdata *SWFData) {
+void NSWF_SWFDataResetBitsPending(NSWF_swfdata* SWFData) {
 	SWFData->BitsPending = 0;
 }
 
-NSWF_number _NSWF_SWFDataReadBits(NSWF_swfdata *SWFData, u32 Bits, u32 BitBuffer) {
+NSWF_number _NSWF_SWFDataReadBits(NSWF_swfdata* SWFData, u32 Bits, u32 BitBuffer) {
 	NSWF_number Result;
 	Result.Unsigned = BitBuffer;
 	if (Bits == 0) {
@@ -405,54 +408,54 @@ NSWF_number _NSWF_SWFDataReadBits(NSWF_swfdata *SWFData, u32 Bits, u32 BitBuffer
 	return (Bits > 0) ? _NSWF_SWFDataReadBits(SWFData, Bits, Result.Unsigned) : Result;
 }
 
-NSWF_number NSWF_SWFDataReadBits(NSWF_swfdata *SWFData, u32 Bits) {
+NSWF_number NSWF_SWFDataReadBits(NSWF_swfdata* SWFData, u32 Bits) {
 	NSWF_number Result = _NSWF_SWFDataReadBits(SWFData, Bits, 0);
 	return(Result);
 }
 
-s8 NSWF_SWFDataReadS8(NSWF_swfdata *SWFData) {
+s8 NSWF_SWFDataReadS8(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	s8 Result = *((s8 *)SWFData->Head);
 	NSWF_SWFDataSkip(SWFData, 1);
 	return(Result);
 }
 
-s16 NSWF_SWFDataReadS16(NSWF_swfdata *SWFData) {
+s16 NSWF_SWFDataReadS16(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	s16 Result = *((s16 *)SWFData->Head);
 	NSWF_SWFDataSkip(SWFData, 2);
 	return(Result);
 }
 
-s32 NSWF_SWFDataReadS32(NSWF_swfdata *SWFData) {
+s32 NSWF_SWFDataReadS32(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	s32 Result = *((s32 *)SWFData->Head);
 	NSWF_SWFDataSkip(SWFData, 4);
 	return(Result);
 }
 
-u8 NSWF_SWFDataReadU8(NSWF_swfdata *SWFData) {
+u8 NSWF_SWFDataReadU8(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	u8 Result = *((u8 *)SWFData->Head);
 	NSWF_SWFDataSkip(SWFData, 1);
 	return(Result);
 }
 
-u16 NSWF_SWFDataReadU16(NSWF_swfdata *SWFData) {
+u16 NSWF_SWFDataReadU16(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	u16 Result = *((u16 *)SWFData->Head);
 	NSWF_SWFDataSkip(SWFData, 2);
 	return(Result);
 }
 
-u32 NSWF_SWFDataReadU32(NSWF_swfdata *SWFData) {
+u32 NSWF_SWFDataReadU32(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	u32 Result = *((u32 *)SWFData->Head);
 	NSWF_SWFDataSkip(SWFData, 4);
 	return(Result);
 }
 
-u32 NSWF_SWFDataReadU24(NSWF_swfdata *SWFData) {
+u32 NSWF_SWFDataReadU24(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	u16 LowWord = NSWF_SWFDataReadU16(SWFData);
 	u8 HighByte = NSWF_SWFDataReadU8(SWFData);
@@ -460,33 +463,33 @@ u32 NSWF_SWFDataReadU24(NSWF_swfdata *SWFData) {
 	return(Result);
 }
 
-r32 NSWF_SWFDataReadFIXED(NSWF_swfdata *SWFData) {
+r32 NSWF_SWFDataReadFIXED(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	r32 Result = (r32)NSWF_SWFDataReadU32(SWFData) / 65536.0f;
 	return(Result);
 }
 
-r32 NSWF_SWFDataReadFIXED8(NSWF_swfdata *SWFData) {
+r32 NSWF_SWFDataReadFIXED8(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	r32 Result = (r32)NSWF_SWFDataReadU16(SWFData) / 256.0f;
 	return(Result);
 }
 
-r32 NSWF_SWFDataReadFLOAT(NSWF_swfdata *SWFData) {
+r32 NSWF_SWFDataReadFLOAT(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	r32 Result = *((r32 *)SWFData->Head);
 	NSWF_SWFDataSkip(SWFData, 4);
 	return(Result);
 }
 
-r64 NSWF_SWFDataReadDOUBLE(NSWF_swfdata *SWFData) {
+r64 NSWF_SWFDataReadDOUBLE(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	r64 Result = *((r64 *)SWFData->Head);
 	NSWF_SWFDataSkip(SWFData, 8);
 	return(Result);
 }
 
-r32 NSWF_SWFDataReadFLOAT16(NSWF_swfdata *SWFData) {
+r32 NSWF_SWFDataReadFLOAT16(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	s16 Word = NSWF_SWFDataReadS16(SWFData);
 	s16 Sign = ((Word & 0x8000) != 0) ? -1 : 1;
@@ -511,7 +514,7 @@ r32 NSWF_SWFDataReadFLOAT16(NSWF_swfdata *SWFData) {
 	return (r32)(Sign * (1 << (Exponent - NSWF_FLOAT16_EXPONENT_BASE) * (1 + Significand / 1024)));
 }
 
-u32 NSWF_SWFDataReadEncodedU32(NSWF_swfdata *SWFData) {
+u32 NSWF_SWFDataReadEncodedU32(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	u32 Result = NSWF_SWFDataReadU8(SWFData);
 	if (Result & 0x80) {
@@ -533,18 +536,18 @@ u32 NSWF_SWFDataReadEncodedU32(NSWF_swfdata *SWFData) {
 // Bit values
 /////////////////////////////////////////////////////////
 
-u32 NSWF_SWFDataReadUB(NSWF_swfdata *SWFData, u32 bits) {
+u32 NSWF_SWFDataReadUB(NSWF_swfdata* SWFData, u32 bits) {
 	u32 Result = NSWF_SWFDataReadBits(SWFData, bits).Unsigned;
 	return(Result);
 }
 
-s32 NSWF_SWFDataReadSB(NSWF_swfdata *SWFData, u32 bits) {
+s32 NSWF_SWFDataReadSB(NSWF_swfdata* SWFData, u32 bits) {
 	u32 Shift = 32 - bits;
 	s32 Result= (s32)(NSWF_SWFDataReadBits(SWFData, bits).Unsigned << Shift) >> Shift;
 	return(Result);
 }
 
-r32 NSWF_SWFDataReadFB(NSWF_swfdata *SWFData, u32 bits) {
+r32 NSWF_SWFDataReadFB(NSWF_swfdata* SWFData, u32 bits) {
 	r32 Result = (r32)NSWF_SWFDataReadBits(SWFData, bits).Unsigned / 65536.0f;
 	return(Result);
 }
@@ -553,10 +556,10 @@ r32 NSWF_SWFDataReadFB(NSWF_swfdata *SWFData, u32 bits) {
 // String
 /////////////////////////////////////////////////////////
 
-u32 NSWF_SWFDataReadString(NSWF_swfdata *SWFData, char Buffer[], u32 BufferLength) {
+u32 NSWF_SWFDataReadString(NSWF_swfdata* SWFData, char Buffer[], u32 BufferLength) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	
-	char *Walker = (char *)SWFData->Head;
+	char* Walker = (char* )SWFData->Head;
 	u32 Length = 0;
 
 	while (*Walker && BufferLength) {
@@ -573,7 +576,7 @@ u32 NSWF_SWFDataReadString(NSWF_swfdata *SWFData, char Buffer[], u32 BufferLengt
 // Labguage code
 /////////////////////////////////////////////////////////
 
-u8 NSWF_SWFDataReadLANGCODE(NSWF_swfdata *SWFData) {
+u8 NSWF_SWFDataReadLANGCODE(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	return NSWF_SWFDataReadU8(SWFData);
 }
@@ -582,7 +585,7 @@ u8 NSWF_SWFDataReadLANGCODE(NSWF_swfdata *SWFData) {
 // Color records
 /////////////////////////////////////////////////////////
 
-u32 NSWF_SWFDataReadRGB(NSWF_swfdata *SWFData) {
+u32 NSWF_SWFDataReadRGB(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	u8 R = NSWF_SWFDataReadU8(SWFData);
 	u8 G = NSWF_SWFDataReadU8(SWFData);
@@ -590,14 +593,14 @@ u32 NSWF_SWFDataReadRGB(NSWF_swfdata *SWFData) {
 	return 0xff000000 | (R << 16) | (G << 8) | B;
 }
 
-u32 NSWF_SWFDataReadRGBA(NSWF_swfdata *SWFData) {
+u32 NSWF_SWFDataReadRGBA(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	u32 RGB = NSWF_SWFDataReadRGB(SWFData) & 0x00ffffff;
 	u8 A = NSWF_SWFDataReadU8(SWFData);
 	return A << 24 | RGB;
 }
 
-u32 NSWF_SWFDataReadARGB(NSWF_swfdata *SWFData) {
+u32 NSWF_SWFDataReadARGB(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	u8 A = NSWF_SWFDataReadU8(SWFData);
 	u32 RGB = NSWF_SWFDataReadRGB(SWFData) & 0x00ffffff;
@@ -607,7 +610,7 @@ u32 NSWF_SWFDataReadARGB(NSWF_swfdata *SWFData) {
 // Rectangle record
 /////////////////////////////////////////////////////////
 
-NSWF_rect NSWF_SWFDataReadRECT(NSWF_swfdata *SWFData) {
+NSWF_rect NSWF_SWFDataReadRECT(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	NSWF_rect Result;
 	u32 Nbits = NSWF_SWFDataReadUB(SWFData, 5);
@@ -623,7 +626,7 @@ NSWF_rect NSWF_SWFDataReadRECT(NSWF_swfdata *SWFData) {
 // Matrix record
 /////////////////////////////////////////////////////////
 
-NSWF_matrix NSWF_SWFDataReadMATRIX(NSWF_swfdata *SWFData) {
+NSWF_matrix NSWF_SWFDataReadMATRIX(NSWF_swfdata* SWFData) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	NSWF_matrix Result;
 	u32 Nbits;
@@ -655,7 +658,7 @@ NSWF_matrix NSWF_SWFDataReadMATRIX(NSWF_swfdata *SWFData) {
 // Color transform records
 /////////////////////////////////////////////////////////
 
-NSWF_cxform NSWF_SWFDataReadCXFORM(NSWF_swfdata *SWFData, u32 WithAlpha) {
+NSWF_cxform NSWF_SWFDataReadCXFORM(NSWF_swfdata* SWFData, u32 WithAlpha) {
 	NSWF_SWFDataResetBitsPending(SWFData);
 	NSWF_cxform Result;
 
@@ -702,12 +705,143 @@ NSWF_cxform NSWF_SWFDataReadCXFORM(NSWF_swfdata *SWFData, u32 WithAlpha) {
 	return(Result);
 }
 
+NSWF_gradient 
+
+//////////////////////////////
+//        MEMORY
+//////////////////////////////
+
+void* NSWF_SWFDataAllocTagMemory(NSWF_swfdata* SWFData, u32 Size) {
+    if (SWFData->TagMemoryUsed + Size > SWFData->TagMemoryTotal) {
+        assert(!"SWFData: Out of tag memory");
+    }
+
+    void* Result = SWFData->TagMemory + SWFData->TagMemoryUsed;
+    SWFData->TagMemoryUsed += Size;
+
+    return(Result);
+}
+
+void NSWF_SWFDataFreeTagMemory(NSWF_swfdata* SWFData) {
+    SWFData->TagMemoryUsed = 0;
+}
+
 //////////////////////////////
 //        SHAPES
 //////////////////////////////
 
-NSWF_shape NSWF_SWFDataReadSHAPE(NSWF_swfdata *SWFData, u32 WithStyles) {
+void NSWF_SWFDataReadFILLSTYLE(NSWF_swfdata* SWFData, u32 Level, NSWF_fillstyle* Result) {
+    /*
+     * type = data.readUI8();
+			switch(type) {
+				case 0x00:
+					rgb = (level <= 2) ? data.readRGB() : data.readRGBA();
+					break;
+				case 0x10:
+				case 0x12:
+				case 0x13:
+					gradientMatrix = data.readMATRIX();
+					gradient = (type == 0x13) ? data.readFOCALGRADIENT(level) : data.readGRADIENT(level);
+					break;
+				case 0x40:
+				case 0x41:
+				case 0x42:
+				case 0x43:
+					bitmapId = data.readUI16();
+					bitmapMatrix = data.readMATRIX();
+					break;
+				default:
+					throw(new Error("Unknown fill style type: 0x" + type.toString(16)));
+			}
+     */
+    Result->Type = NSWF_SWFDataReadU8(SWFData);
+    switch (Result->Type) {
+        case NSWF_FillStyleType_SolidFill: {
+            Result->Color = (Level <= 2) ? NSWF_SWFDataReadRGB(SWFData) : NSWF_SWFDataReadRGBA(SWFData);
+        } break;
+        case NSWF_FillStyleType_LinearGradient:
+        case NSWF_FillStyleType_RadialGradient:
+        case NSWF_FillStyleType_FocalRadialGradient: {
+            Result->GradientMatrix = NSWF_SWFDataReadMATRIX(SWFData);
+            Result->Gradient = NSWF_SWFDataReadGRADIENT(SWFData, Level, Result->Type == NSWF_FillStyleType_FocalRadialGradient);
+        } break;
+        case NSWF_FillStyleType_RepeatingBitmap:
+        case NSWF_FillStyleType_ClippedBitmap:
+        case NSWF_FillStyleType_NonSmoothedRepeating:
+        case NSWF_FillStyleType_NonSmoothedClipped: {
+            Result->BitmapId = NSWF_SWFDataReadU16(SWFData);
+            Result->BitmapMatrix = NSWF_SWFDataReadMATRIX(SWFData);
+        } break;
+    }
+}
 
+NSWF_fillstylearray* NSWF_SWFDataReadFILLSTYLEARRAY(NSWF_swfdata* SWFData, u8 CheckExtended) {
+    u32 i;
+    NSWF_fillstylearray* Result = (NSWF_fillstylearray*)NSWF_SWFDataAllocTagMemory(SWFData, sizeof(NSWF_fillstylearray));
+    Result->FillStylesCount = NSWF_SWFDataReadU8(SWFData);
+    if (CheckExtended && Result->FillStylesCount == 0xFF) {
+        Result->FillStylesCount = NSWF_SWFDataReadU16(SWFData);
+    }
+    Result->FillStyles = (NSWF_fillstyle*)NSWF_SWFDataAllocTagMemory(SWFData, sizeof(NSWF_fillstyle) * Result->FillStyleCount);
+    for (i = 0; i < Result->FillStylesCount; ++i) {
+        NSWF_SWFDataReadFILLSTYLE(SWFData, Result->FillStyles + i);
+    }
+    return(Result);
+}
+
+/*
+ * Level 2 is LINESTYLE2
+ */
+NSWF_linestylearray* NSWF_SWFDataReadLINESTYLEARRAY(NSWF_swfdata* SWFData, u8 CheckExtended, u32 Level) {
+    u32 i;
+    NSWF_linestylearray* Result = (NSWF_linestylearray*)NSWF_SWFDataAllocTagMemory(SWFData, sizeof(NSWF_linestylearray));
+    Result->LineStylesCount = NSWF_SWFDataReadU8(SWFData);
+    if (CheckExtended && Result->LineStylesCount == 0xFF) {
+        Result->LineStylesCount = NSWF_SWFDataReadU16(SWFData);
+    }
+    Result->LIneStyles = (NSWF_linestyle*)NSWF_SWFDataAllocTagMemory(SWFData, sizeof(NSWF_linestyle) * Result->LineStyleCount);
+    for (i = 0; i < Result->LineStylesCount; ++i) {
+        NSWF_SWFDataReadLINESTYLE(SWFData, Result->LineStyles + i, Level);
+    }
+    return(Result);
+}
+
+
+NSWF_shape* NSWF_SWFDataReadSHAPE(NSWF_swfdata* SWFData, u32 Level, u8 WithStyles) {
+//    data.resetBitsPending();
+//    var i:uint;
+//    var fillStylesLen:uint = readStyleArrayLength(data, level);
+//    for (i = 0; i < fillStylesLen; i++) {
+//        initialFillStyles.push(data.readFILLSTYLE(level));
+//    }
+//    var lineStylesLen:uint = readStyleArrayLength(data, level);
+//    for (i = 0; i < lineStylesLen; i++) {
+//        initialLineStyles.push(level <= 3 ? data.readLINESTYLE(level) : data.readLINESTYLE2(level));
+//    }
+//    data.resetBitsPending();
+//    var numFillBits:uint = data.readUB(4);
+//    var numLineBits:uint = data.readUB(4);
+//    readShapeRecords(data, numFillBits, numLineBits, level);
+//    var len:uint = data.readUI8();
+//    if (level >= 2 && len == 0xff) {
+//        len = data.readUI16();
+//    }
+//    return len;
+    NSWF_shape* Result = (NSWF_shape*)NSWF_SWFDataAllocTagMemory(SWFData, sizeof(NSWF_shape));
+    NSWF_SWFDataResetBitsPending(SWFData);
+
+    if (WithStyles) {
+        u32 i;
+        NSWF_SWFDataReadFILLSTYLEARRAY(SWFData);
+
+        NSWF_SWFDataReadFILLSTYLEARRAY(SWFData, Level > 3 ? 2 : 1);
+    }
+    NSWF_SWFDataResetBitsPending(SWFData);
+    u32 NumFillBits = NSWF_SWFDataReadUB(4);
+    u32 NumLineBits = NSWF_SWFDataReadUB(4);
+    //read shaperecords
+
+    return Result;
 }
 
 
@@ -715,7 +849,7 @@ NSWF_shape NSWF_SWFDataReadSHAPE(NSWF_swfdata *SWFData, u32 WithStyles) {
 //          TAGS
 //////////////////////////////
 
-NSWF_tag_header NSWF_SWFDataReadTagHeader(NSWF_swfdata *SWFData) {
+NSWF_tag_header NSWF_SWFDataReadTagHeader(NSWF_swfdata* SWFData) {
 	NSWF_tag_header Result;
 	u16 TagCodeAndLength = NSWF_SWFDataReadU16(SWFData);
 	Result.TagCode = TagCodeAndLength >> 6;
@@ -726,8 +860,8 @@ NSWF_tag_header NSWF_SWFDataReadTagHeader(NSWF_swfdata *SWFData) {
 	return(Result);
 }
 
-NSWF_tag_defineshape *NSWF_SWFDataReadTagDEFINESHAPE4(NSWF_swfdata *SWFData) {
-	NSWF_tag_defineshape *Result = malloc(sizeof(NSWF_tag_defineshape));
+NSWF_tag_defineshape* NSWF_SWFDataReadTagDEFINESHAPE4(NSWF_swfdata* SWFData) {
+	NSWF_tag_defineshape* Result = (NSWF_tag_defineshape*)NSWF_SWFDataAllocTagMemory(SWFData, sizeof(NSWF_tag_defineshape));
 	Result->CharacterID = NSWF_SWFDataReadU16(SWFData);
 	Result->ShapeBounds = NSWF_SWFDataReadRECT(SWFData);
 	Result->EdgeBounds = NSWF_SWFDataReadRECT(SWFData);
@@ -736,14 +870,17 @@ NSWF_tag_defineshape *NSWF_SWFDataReadTagDEFINESHAPE4(NSWF_swfdata *SWFData) {
 	return(Result);
 }
 
-NSWF_swfdata *NSWF_SWFDataInit(void *Data, u32 Length) {
-    NSWF_swfdata *Result = (NSWF_swfdata *)malloc(sizeof(NSWF_swfdata));
+NSWF_swfdata* NSWF_SWFDataInit(void* Data, u32 Length, u32 TagMemorySize) {
+    NSWF_swfdata* Result = (NSWF_swfdata*)malloc(sizeof(NSWF_swfdata));
     Result->OwnsData = 0;
     Result->Data = Data;
     Result->Head = Data;
     Result->Length = Length;
     Result->ByteIndex = 0;
     Result->BitsPending = 0;
+    Result->TagMemory = malloc(TagMemorySize);
+    Result->TagMemoryUsed = 0;
+    Result->TagMemoryTotal = TagMemorySize;
 
     // Read header
     NSWF_swfheader Header = { 0 };
@@ -767,7 +904,7 @@ NSWF_swfdata *NSWF_SWFDataInit(void *Data, u32 Length) {
 #define FOPEN(file, filename, mode) file = fopen(filename, mode)
 #endif
 
-NSWF_swfdata *NSWF_SWFDataInitFromFile(const char *Filename) {
+NSWF_swfdata* NSWF_SWFDataInitFromFile(const char* Filename, u32 TagMemorySize) {
     FILE *File;
 
 	FOPEN(File, Filename, "rb");
@@ -782,20 +919,20 @@ NSWF_swfdata *NSWF_SWFDataInitFromFile(const char *Filename) {
     long Length = ftell(File);
     fseek(File, 0, SEEK_SET);  //same as rewind(f);
 
-    void *Data = malloc(Length);
+    void* Data = malloc(Length);
     fread(Data, Length, 1, File);
     fclose(File);
 
-    NSWF_swfdata *Result = NSWF_SWFDataInit(Data, Length);
+    NSWF_swfdata* Result = NSWF_SWFDataInit(Data, Length, TagMemorySize);
     Result->OwnsData = 1;
     return(Result);
 }
 
-void NSWF_SWFDataReadTags(NSWF_swfdata *SWFData, NSWF_tagcallback TagCallback) {
+void NSWF_SWFDataReadTags(NSWF_swfdata* SWFData, NSWF_tagcallback TagCallback) {
     // Read tags
     while (1) {
         NSWF_tag_header TagHeader = NSWF_SWFDataReadTagHeader(SWFData);
-		void *Tag = NULL;
+		void* Tag = NULL;
 
         switch (TagHeader.TagCode) {
             case TagCode_DefineShape4: {
@@ -814,8 +951,11 @@ void NSWF_SWFDataReadTags(NSWF_swfdata *SWFData, NSWF_tagcallback TagCallback) {
     }
 }
 
-void NSWF_SWFDataFree(NSWF_swfdata *SWFData) {
-    free(SWFData->Data);
+void NSWF_SWFDataFree(NSWF_swfdata* SWFData) {
+    if (SWFData->OwnsData) {
+        free(SWFData->Data);
+    }
+    free(SWFData->TagMemory);
     free(SWFData);
 }
 
